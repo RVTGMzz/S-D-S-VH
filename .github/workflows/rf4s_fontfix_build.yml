@@ -1,9 +1,6 @@
 name: RF4S Ryubing Vietnamese Font Fix Build
 
-on:
-  push:
-    branches:
-      - rf4s-ryubing-fontfix-build-20260930
+on:\n  workflow_dispatch:
 
 permissions:
   contents: read
