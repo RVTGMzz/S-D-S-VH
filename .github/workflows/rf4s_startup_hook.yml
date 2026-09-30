@@ -1,11 +1,10 @@
 name: RF4S Ryujinx Vietnamese Startup Hook
 
 on:
-  push:
+  pull_request:
     branches:
-      - rf4s-ryubing-fontfix-build-20260930
-    paths:
-      - '.github/workflows/rf4s_startup_hook.yml'
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
