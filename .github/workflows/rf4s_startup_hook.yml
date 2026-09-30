@@ -196,19 +196,86 @@ jobs:
         shell: bash
         run: dotnet publish hook/RF4SFontHook.csproj -c Release -o out
 
-      - name: Verify single hook assembly
+      - name: Runtime smoke test
+        shell: bash
+        run: |
+          mkdir -p fakehle host testbundle
+
+          cat > fakehle/FakeHle.csproj <<'EOF'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <TargetFramework>net10.0</TargetFramework>
+              <AssemblyName>Ryujinx.HLE</AssemblyName>
+            </PropertyGroup>
+          </Project>
+          EOF
+
+          cat > fakehle/SharedFontManager.cs <<'EOF'
+          using System.IO;
+          namespace Ryujinx.HLE.HOS.Services.Sdb.Pl
+          {
+              internal class SharedFontManager
+              {
+                  public void Initialize() { }
+                  private byte[] DecryptFont(Stream stream) => new byte[] { 9, 9, 9, 9 };
+                  public byte[] Test(Stream stream) => DecryptFont(stream);
+              }
+          }
+          EOF
+
+          cat > host/Host.csproj <<'EOF'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net10.0</TargetFramework>
+            </PropertyGroup>
+            <ItemGroup>
+              <ProjectReference Include="../fakehle/FakeHle.csproj" />
+            </ItemGroup>
+          </Project>
+          EOF
+
+          cat > host/Program.cs <<'EOF'
+          using System;
+          using System.IO;
+          using System.Reflection;
+
+          Assembly asm = Assembly.Load("Ryujinx.HLE");
+          Type type = asm.GetType("Ryujinx.HLE.HOS.Services.Sdb.Pl.SharedFontManager", true)!;
+          object obj = Activator.CreateInstance(type, nonPublic: true)!;
+          MethodInfo init = type.GetMethod("Initialize", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+          init.Invoke(obj, null);
+          MethodInfo test = type.GetMethod("Test", BindingFlags.Instance | BindingFlags.Public)!;
+          byte[] result = (byte[])test.Invoke(obj, new object[] { new MemoryStream(new byte[16]) })!;
+          Console.WriteLine("RESULT_LEN=" + result.Length);
+          if (result.Length != 7) Environment.Exit(41);
+          EOF
+
+          dotnet publish host/Host.csproj -c Release -o hostout
+
+          cp out/RF4SFontHook.dll testbundle/
+          cp out/0Harmony.dll testbundle/
+          printf 'VIETNAM' > testbundle/FontStandard_RF4S_Vietnamese.ttf
+
+          DOTNET_STARTUP_HOOKS="$PWD/testbundle/RF4SFontHook.dll" dotnet hostout/Host.dll
+          grep -q "Patched Ryujinx SharedFontManager successfully." testbundle/RF4SFontHook.log
+          grep -q "FontStandard overridden with Vietnamese font (7 bytes)." testbundle/RF4SFontHook.log
+
+      - name: Package hook
         shell: bash
         run: |
           test -f out/RF4SFontHook.dll
-          ls -lh out
-          cp out/RF4SFontHook.dll .
-          sha256sum RF4SFontHook.dll > RF4SFontHook.sha256
+          test -f out/0Harmony.dll
+          mkdir -p artifact
+          cp out/RF4SFontHook.dll artifact/
+          cp out/0Harmony.dll artifact/
+          cp out/RF4SFontHook.deps.json artifact/
+          sha256sum artifact/RF4SFontHook.dll artifact/0Harmony.dll > artifact/SHA256SUMS.txt
+          ls -lh artifact
 
       - name: Upload hook artifact
         uses: actions/upload-artifact@v4
         with:
           name: RF4SFontHook-net10
-          path: |
-            RF4SFontHook.dll
-            RF4SFontHook.sha256
+          path: artifact
           retention-days: 3
