@@ -1,5 +1,27 @@
 # CURRENT HANDOFF — Seven Deadly Sins 3.13.4
 
+## 2026-09-30 current resume point
+
+**Read first:** `audit/SESSION_HANDOFF_2026-09-30_PRONOUNS_MARRIAGE_SCOPE.md`.
+
+Latest locked state:
+
+- Preferred text base: `SDS-3.13.4-Vietnamese-Name-Item-Gender-Lock-Build1.zip`, SHA256 `808b23eb38913898ee3b65ffd8a1e6904f2528aafe5394e9a75ff1865759ed1f`.
+- Gender Lock roster: 22 male / 9 female / 1 route-variable / 8 neutral-or-unknown, 40 dialogue prefixes total.
+- Maria is female. Siren remains route/form dependent and must not be globally forced male/female.
+- Optional pronoun overlays remain mutually exclusive:
+  - Male Romance: Lucas, Pelette, Uriel, Sariel, Lane, Rane, Hovsep.
+  - Female Romance: Regla, Luoli, Maria.
+- Female marriage scope was re-verified against `SDS.MarriageDialogue.*`: Regla 93 keys, Luoli 84, Maria 83. Siren has 117 but is handled separately because of route/form gender variation.
+- Teresa, Wendy, Annika, Xenia, Shichiyo, Trinity have no `SDS.MarriageDialogue.*` entries in the reviewed 3.13.4 localization and must not be added to Option B from gender alone.
+- Presentation policy: do not AI-regenerate the original mod artist's artwork. Prefer real in-game screenshots or un-regenerated official art with layout/crop/text overlays and appropriate credit.
+- Next translation work, when requested: speaker-by-speaker voice/pronoun editorial QA. No global pronoun replacement and no broad restart.
+- Do not resume Shearwater/minimap research unless explicitly requested.
+
+---
+
+# CURRENT HANDOFF — Seven Deadly Sins 3.13.4
+
 Read first:
 
 1. `compatibility/SESSION-2026-09-15-HANDOFF.md`
