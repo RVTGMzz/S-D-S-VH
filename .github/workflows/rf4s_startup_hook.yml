@@ -154,7 +154,7 @@ jobs:
                   }
               }
 
-              private static bool DecryptFontPrefix(Stream bfttfStream, ref byte[] __result)
+              private static bool DecryptFontPrefix(ref byte[] __result)
               {
                   try
                   {
