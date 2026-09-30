@@ -61,6 +61,23 @@ jobs:
                   try
                   {
                       Log("Startup hook loaded.");
+
+                      string hookDir = Path.GetDirectoryName(typeof(StartupHook).Assembly.Location)
+                          ?? AppContext.BaseDirectory;
+                      string harmonyPath = Path.Combine(hookDir, "0Harmony.dll");
+
+                      if (!AppDomain.CurrentDomain.GetAssemblies()
+                          .Any(a => string.Equals(a.GetName().Name, "0Harmony", StringComparison.Ordinal)))
+                      {
+                          if (!File.Exists(harmonyPath))
+                          {
+                              throw new FileNotFoundException("0Harmony.dll not found beside RF4SFontHook.dll", harmonyPath);
+                          }
+
+                          AssemblyLoadContext.Default.LoadFromAssemblyPath(harmonyPath);
+                          Log("Loaded 0Harmony.dll from hook directory.");
+                      }
+
                       foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
                       {
                           TryPatch(assembly);
