@@ -1,0 +1,75 @@
+name: RF4S Ryubing Vietnamese Font Fix Build
+
+on:
+  push:
+    branches:
+      - rf4s-ryubing-fontfix-build-20260930
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Ryubing source
+        shell: bash
+        run: git clone --depth 1 https://github.com/Leuconoe/Ryubing.git ryubing
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Patch shared FontStandard
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("ryubing/src/Ryujinx.HLE/HOS/Services/Sdb/Pl/SharedFontManager.cs")
+          s = p.read_text(encoding="utf-8")
+          if "using Ryujinx.Common.Configuration;" not in s:
+              s = s.replace("using Ryujinx.Common.Memory;", "using Ryujinx.Common.Configuration;\nusing Ryujinx.Common.Memory;", 1)
+          old_call = "data = DecryptFont(fontFile.Get.AsStream());"
+          if old_call not in s:
+              raise SystemExit("Could not find DecryptFont call")
+          s = s.replace(old_call, "data = DecryptFont(fontFile.Get.AsStream(), name);", 1)
+          old_sig = "        private byte[] DecryptFont(Stream bfttfStream)\n        {\n"
+          new_sig = "        private byte[] DecryptFont(Stream bfttfStream, string name)\n        {\n            if (name == \"FontStandard\")\n            {\n                string overrideFontPath = Path.Combine(\n                    AppDataManager.BaseDirPath,\n                    \"system\",\n                    \"fonts\",\n                    \"FontStandard_RF4S_Vietnamese.ttf\");\n\n                if (File.Exists(overrideFontPath))\n                {\n                    return File.ReadAllBytes(overrideFontPath);\n                }\n            }\n\n"
+          if old_sig not in s:
+              raise SystemExit("Could not find DecryptFont method")
+          s = s.replace(old_sig, new_sig, 1)
+          p.write_text(s, encoding="utf-8")
+          PY
+
+      - name: Configure build metadata
+        shell: bash
+        working-directory: ryubing
+        run: |
+          sed -i 's/%%RYUJINX_CONFIG_FILE_NAME%%/Config.json/g' src/Ryujinx.Common/ReleaseInformation.cs
+          sed -i 's/%%RYUJINX_BUILD_VERSION%%/1.3.999-rf4s/g' src/Ryujinx.Common/ReleaseInformation.cs
+          sed -i 's/%%RYUJINX_BUILD_GIT_HASH%%/rf4s-fontfix/g' src/Ryujinx.Common/ReleaseInformation.cs
+          sed -i 's/%%RYUJINX_TARGET_RELEASE_CHANNEL_NAME%%/rf4s-fontfix/g' src/Ryujinx.Common/ReleaseInformation.cs
+
+      - name: Publish Linux x64
+        shell: bash
+        working-directory: ryubing
+        run: |
+          dotnet publish -c Release -r linux-x64 -o ../publish -p:Version=1.3.999 -p:DebugType=embedded -p:SourceRevisionId=rf4s-fontfix -p:ExtraDefineConstants=DISABLE_UPDATER src/Ryujinx --self-contained
+          chmod +x ../publish/Ryujinx ../publish/Ryujinx.sh
+
+      - name: Create archive
+        shell: bash
+        run: |
+          tar -C publish -czf RF4S-Ryubing-FontOverride-linux-x64.tar.gz .
+          sha256sum RF4S-Ryubing-FontOverride-linux-x64.tar.gz > RF4S-Ryubing-FontOverride-linux-x64.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RF4S-Ryubing-FontOverride-linux-x64
+          path: |
+            RF4S-Ryubing-FontOverride-linux-x64.tar.gz
+            RF4S-Ryubing-FontOverride-linux-x64.sha256
+          retention-days: 3
