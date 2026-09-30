@@ -32,7 +32,7 @@ jobs:
               <AssemblyName>RF4SFontHook</AssemblyName>
             </PropertyGroup>
             <ItemGroup>
-              <PackageReference Include="Lib.Harmony" Version="2.3.6" />
+              <PackageReference Include="Lib.Harmony" Version="2.4.2" />
               <PackageReference Include="Fody" Version="6.9.3" PrivateAssets="all" />
               <PackageReference Include="Costura.Fody" Version="6.0.0" PrivateAssets="all" />
             </ItemGroup>
