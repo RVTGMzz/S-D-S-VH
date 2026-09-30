@@ -212,12 +212,21 @@ jobs:
 
           cat > fakehle/SharedFontManager.cs <<'EOF'
           using System.IO;
+          using System.Runtime.CompilerServices;
           namespace Ryujinx.HLE.HOS.Services.Sdb.Pl
           {
               internal class SharedFontManager
               {
                   public void Initialize() { }
-                  private byte[] DecryptFont(Stream stream) => new byte[] { 9, 9, 9, 9 };
+
+                  [MethodImpl(MethodImplOptions.NoInlining)]
+                  private byte[] DecryptFont(Stream stream)
+                  {
+                      byte[] source = new byte[] { 9, 9, 9, 9 };
+                      return source;
+                  }
+
+                  [MethodImpl(MethodImplOptions.NoInlining)]
                   public byte[] Test(Stream stream) => DecryptFont(stream);
               }
           }
@@ -257,7 +266,13 @@ jobs:
           cp out/0Harmony.dll testbundle/
           printf 'VIETNAM' > testbundle/FontStandard_RF4S_Vietnamese.ttf
 
+          set +e
           DOTNET_STARTUP_HOOKS="$PWD/testbundle/RF4SFontHook.dll" dotnet hostout/Host.dll
+          rc=$?
+          set -e
+          echo "--- RF4SFontHook.log ---"
+          cat testbundle/RF4SFontHook.log || true
+          test "$rc" -eq 0
           grep -q "Patched Ryujinx SharedFontManager successfully." testbundle/RF4SFontHook.log
           grep -q "FontStandard overridden with Vietnamese font (7 bytes)." testbundle/RF4SFontHook.log
 
