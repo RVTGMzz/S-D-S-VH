@@ -73,3 +73,29 @@ QA:
 - Existing inline player-gender syntax from the translation is reused, with `${cậu^cô}$` for Option A early dialogue and `${anh^chị}$` for Option B.
 - `Siren` must remain route-aware and must never be globally forced into either binary pack.
 - The large repository release `vi.json` blobs are not rebuilt by this documentation commit. The session ZIPs are the validated optional artifacts.
+
+
+## 2026-09-30 marriage-candidate scope verification
+
+Verified directly against the current Build 1 CP localization using `SDS.MarriageDialogue.*` keys.
+
+Fixed female marriage candidates:
+
+- Regla — 93 marriage-dialogue keys
+- Luoli — 84 marriage-dialogue keys
+- Maria — 83 marriage-dialogue keys
+
+Special case:
+
+- Siren — 117 marriage-dialogue keys, but Siren remains intentionally route/form gender-variable and is excluded from both binary optional packs.
+
+Other female Gender Lock characters with no `SDS.MarriageDialogue.*` entries in the reviewed 3.13.4 localization:
+
+- Teresa
+- Wendy
+- Annika
+- Xenia
+- Shichiyo
+- Trinity
+
+Therefore Option B remains correctly scoped to Regla + Luoli + Maria for fixed-female romance. Do not expand the pack from gender alone; marriage eligibility must be source-backed.
