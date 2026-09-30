@@ -1,0 +1,215 @@
+name: RF4S Ryujinx Vietnamese Startup Hook
+
+on:
+  push:
+    branches:
+      - rf4s-ryubing-fontfix-build-20260930
+    paths:
+      - '.github/workflows/rf4s_startup_hook.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-hook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Create startup hook project
+        shell: bash
+        run: |
+          mkdir -p hook
+          cat > hook/RF4SFontHook.csproj <<'EOF'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <TargetFramework>net10.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+              <AssemblyName>RF4SFontHook</AssemblyName>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="Lib.Harmony" Version="2.3.6" />
+              <PackageReference Include="Fody" Version="6.9.3" PrivateAssets="all" />
+              <PackageReference Include="Costura.Fody" Version="6.0.0" PrivateAssets="all" />
+            </ItemGroup>
+          </Project>
+          EOF
+
+          cat > hook/FodyWeavers.xml <<'EOF'
+          <Weavers>
+            <Costura />
+          </Weavers>
+          EOF
+
+          cat > hook/StartupHook.cs <<'EOF'
+          using HarmonyLib;
+          using System.Reflection;
+          using System.Threading;
+
+          public class StartupHook
+          {
+              private static int _patched;
+              private static int _fontCallIndex;
+
+              public static void Initialize()
+              {
+                  try
+                  {
+                      Log("Startup hook loaded.");
+                      foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+                      {
+                          TryPatch(assembly);
+                      }
+
+                      AppDomain.CurrentDomain.AssemblyLoad += (_, e) => TryPatch(e.LoadedAssembly);
+                  }
+                  catch (Exception ex)
+                  {
+                      Log("Initialize error: " + ex);
+                  }
+              }
+
+              private static void TryPatch(Assembly assembly)
+              {
+                  if (!string.Equals(assembly.GetName().Name, "Ryujinx.HLE", StringComparison.Ordinal))
+                  {
+                      return;
+                  }
+
+                  if (Interlocked.Exchange(ref _patched, 1) != 0)
+                  {
+                      return;
+                  }
+
+                  try
+                  {
+                      Type? type = assembly.GetType("Ryujinx.HLE.HOS.Services.Sdb.Pl.SharedFontManager", throwOnError: false);
+                      if (type is null)
+                      {
+                          throw new MissingMemberException("SharedFontManager not found.");
+                      }
+
+                      MethodInfo? decrypt = type.GetMethod(
+                          "DecryptFont",
+                          BindingFlags.Instance | BindingFlags.NonPublic,
+                          binder: null,
+                          types: new[] { typeof(Stream) },
+                          modifiers: null);
+
+                      if (decrypt is null)
+                      {
+                          throw new MissingMethodException("DecryptFont(Stream) not found.");
+                      }
+
+                      MethodInfo prefix = typeof(StartupHook).GetMethod(
+                          nameof(DecryptFontPrefix),
+                          BindingFlags.Static | BindingFlags.NonPublic)!;
+
+                      Harmony harmony = new("rf4s.vietnamese.sharedfont");
+                      harmony.Patch(decrypt, prefix: new HarmonyMethod(prefix));
+
+                      MethodInfo? initialize = type.GetMethod(
+                          "Initialize",
+                          BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                          binder: null,
+                          types: Type.EmptyTypes,
+                          modifiers: null);
+
+                      if (initialize is not null)
+                      {
+                          MethodInfo reset = typeof(StartupHook).GetMethod(
+                              nameof(ResetFontCounter),
+                              BindingFlags.Static | BindingFlags.NonPublic)!;
+                          harmony.Patch(initialize, postfix: new HarmonyMethod(reset));
+                      }
+
+                      Log("Patched Ryujinx SharedFontManager successfully.");
+                  }
+                  catch (Exception ex)
+                  {
+                      Interlocked.Exchange(ref _patched, 0);
+                      Log("Patch error: " + ex);
+                  }
+              }
+
+              private static bool DecryptFontPrefix(Stream bfttfStream, ref byte[] __result)
+              {
+                  try
+                  {
+                      int call = Interlocked.Increment(ref _fontCallIndex) - 1;
+
+                      // EnsureInitialized creates the six shared fonts in a fixed order.
+                      // FontStandard (Japan/US/Europe) is the first call in every group.
+                      if ((call % 6) != 0)
+                      {
+                          return true;
+                      }
+
+                      string hookDir = Path.GetDirectoryName(typeof(StartupHook).Assembly.Location)
+                          ?? AppContext.BaseDirectory;
+                      string fontPath = Path.Combine(hookDir, "FontStandard_RF4S_Vietnamese.ttf");
+
+                      if (!File.Exists(fontPath))
+                      {
+                          Log("Vietnamese font file not found: " + fontPath);
+                          return true;
+                      }
+
+                      __result = File.ReadAllBytes(fontPath);
+                      Log($"FontStandard overridden with Vietnamese font ({__result.Length} bytes).");
+                      return false;
+                  }
+                  catch (Exception ex)
+                  {
+                      Log("Font override error: " + ex);
+                      return true;
+                  }
+              }
+
+              private static void ResetFontCounter()
+              {
+                  Interlocked.Exchange(ref _fontCallIndex, 0);
+              }
+
+              private static void Log(string text)
+              {
+                  try
+                  {
+                      string dir = Path.GetDirectoryName(typeof(StartupHook).Assembly.Location)
+                          ?? AppContext.BaseDirectory;
+                      File.AppendAllText(
+                          Path.Combine(dir, "RF4SFontHook.log"),
+                          DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | " + text + Environment.NewLine);
+                  }
+                  catch
+                  {
+                  }
+              }
+          }
+          EOF
+
+      - name: Build hook
+        shell: bash
+        run: dotnet publish hook/RF4SFontHook.csproj -c Release -o out
+
+      - name: Verify single hook assembly
+        shell: bash
+        run: |
+          test -f out/RF4SFontHook.dll
+          ls -lh out
+          cp out/RF4SFontHook.dll .
+          sha256sum RF4SFontHook.dll > RF4SFontHook.sha256
+
+      - name: Upload hook artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RF4SFontHook-net10
+          path: |
+            RF4SFontHook.dll
+            RF4SFontHook.sha256
+          retention-days: 3
