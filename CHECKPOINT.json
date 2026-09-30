@@ -228,13 +228,72 @@
     }
   },
   "resume_target": {
-    "mode": "optional_pronoun_packs_ready_for_user_test",
+    "mode": "pronoun_voice_editorial_qa_ready",
     "do_not_restart_broad_translation": true,
     "do_not_resume_minimap_shearwater_unless_user_requests": true,
     "do_not_resume_portrait_or_statement_png_debugging_unless_user_requests": true,
-    "read_first": "audit/OPTIONAL_PRONOUN_PACKS_2026-09-16.md",
-    "next_action": "Use the audited base plus exactly one optional pronoun overlay. If the user reports awkward lines, patch concrete speaker/context cases and continue character-by-character editorial QA without global pronoun replacement."
+    "read_first": "audit/SESSION_HANDOFF_2026-09-30_PRONOUNS_MARRIAGE_SCOPE.md",
+    "next_action": "Preserve audited Name + Item + Gender Lock Build 1 and exactly one optional pronoun policy. Continue speaker-by-speaker voice/pronoun QA when requested; keep Siren route-aware and do not add non-marriage female NPCs to Option B."
   },
   "translation_rules_file": "HANDOFF.md",
-  "updated_at": "2026-09-16T09:11:00+07:00"
+  "updated_at": "2026-09-30T21:18:00+07:00",
+  "gender_lock": {
+    "state": "pass1_complete_foundation",
+    "roster_counts": {
+      "male": 22,
+      "female": 9,
+      "gender_variable": 1,
+      "unknown_or_nonhuman_neutral": 8,
+      "total": 40
+    },
+    "maria_lock": "female",
+    "siren_policy": "route_form_dependent_never_global_force",
+    "confirmed_maria_fixes": [
+      "SDS.Dialogue.Lane.fall_Sat6.1",
+      "SDS.Dialogue.Lane.winter_Wed.2",
+      "party.npc.Maria.invitation.8.1"
+    ],
+    "base_build": {
+      "name": "SDS-3.13.4-Vietnamese-Name-Item-Gender-Lock-Build1.zip",
+      "sha256": "808b23eb38913898ee3b65ffd8a1e6904f2528aafe5394e9a75ff1865759ed1f"
+    },
+    "rule": "Gender lock prevents wrong-gender references but does not authorize global pronoun replacement; Vietnamese pronouns remain context-dependent."
+  },
+  "marriage_candidate_scope": {
+    "verified_at": "2026-09-30",
+    "basis": "Direct scan of SDS.MarriageDialogue.* keys in current Build 1 CP localization",
+    "fixed_female_candidates": {
+      "Regla": 93,
+      "Luoli": 84,
+      "Maria": 83
+    },
+    "special_gender_variable_candidate": {
+      "Siren": 117
+    },
+    "female_locked_non_candidates_zero_marriage_dialogue": [
+      "Teresa",
+      "Wendy",
+      "Annika",
+      "Xenia",
+      "Shichiyo",
+      "Trinity"
+    ],
+    "optional_female_pack_scope": [
+      "Regla",
+      "Luoli",
+      "Maria"
+    ],
+    "siren_excluded_from_binary_packs": true,
+    "audit_commit": "c92bd66587ed8c960107ab25146c649d370a178f"
+  },
+  "presentation_policy": {
+    "updated_at": "2026-09-30",
+    "ai_regen_original_artist_art": false,
+    "preferred_visuals": "real in-game screenshots or un-regenerated official artwork with layout/crop/text overlays",
+    "credit_original_artist_or_mod_author_when_appropriate": true
+  },
+  "current_session_handoff": {
+    "file": "audit/SESSION_HANDOFF_2026-09-30_PRONOUNS_MARRIAGE_SCOPE.md",
+    "commit": "e365fe3fbfe01742bbafe8d718addd94362c9b9d"
+  }
 }
