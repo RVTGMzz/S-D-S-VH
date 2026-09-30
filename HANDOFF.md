@@ -253,3 +253,21 @@ When resuming:
 ## Persistence rule
 
 Every confirmed translation/runtime result and compatibility patch must be committed before being considered complete. Update `CHECKPOINT.json`, this root handoff, and the current session handoff whenever runtime or localization state materially changes.
+
+
+## 2026-09-30 pronoun / marriage scope checkpoint
+
+Current resume handoff: `audit/SESSION_HANDOFF_2026-09-30_PRONOUNS_MARRIAGE_SCOPE.md`.
+
+Locked decisions:
+
+- Current preferred base is `SDS-3.13.4-Vietnamese-Name-Item-Gender-Lock-Build1.zip` (SHA256 `808b23eb38913898ee3b65ffd8a1e6904f2528aafe5394e9a75ff1865759ed1f`).
+- Gender Lock research covers 40 dialogue prefixes: 22 male, 9 female, 1 intentional route/form-variable, 8 neutral/unknown.
+- Maria is female; Siren is route/form dependent.
+- Optional Male Romance pack scope remains Lucas, Pelette, Uriel, Sariel, Lane, Rane, Hovsep.
+- Optional Female Romance pack scope remains Regla, Luoli, Maria.
+- Direct `SDS.MarriageDialogue.*` verification found Regla 93 keys, Luoli 84, Maria 83, Siren 117. Teresa, Wendy, Annika, Xenia, Shichiyo and Trinity have zero marriage-dialogue keys in the reviewed 3.13.4 localization.
+- Never add a character to an optional marriage-pronoun pack from gender alone; eligibility must be source-backed.
+- Do not globally search/replace Vietnamese pronouns. Continue speaker-by-speaker and context-by-context.
+- Nexus/art presentation rule: do not AI-regenerate the original artist's mod artwork. Prefer real in-game screenshots or un-regenerated official art with text/layout treatment and appropriate credit.
+
