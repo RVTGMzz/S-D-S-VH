@@ -1,0 +1,10 @@
+name: RF4S Ryubing Full Build (manual only)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  note:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Full build disabled; RF4S uses startup-hook build instead."
