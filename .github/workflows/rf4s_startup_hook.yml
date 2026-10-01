@@ -38,13 +38,9 @@ jobs:
             </ItemGroup>
           </Project>
           EOF
-
           cat > hook/FodyWeavers.xml <<'EOF'
-          <Weavers>
-            <Costura />
-          </Weavers>
+          <Weavers><Costura /></Weavers>
           EOF
-
           cat > hook/StartupHook.cs <<'EOF'
           using HarmonyLib;
           using System.Reflection;
@@ -61,97 +57,36 @@ jobs:
                   try
                   {
                       Log("Startup hook loaded.");
-
-                      string hookDir = Path.GetDirectoryName(typeof(StartupHook).Assembly.Location)
-                          ?? AppContext.BaseDirectory;
+                      string hookDir = Path.GetDirectoryName(typeof(StartupHook).Assembly.Location) ?? AppContext.BaseDirectory;
                       string harmonyPath = Path.Combine(hookDir, "0Harmony.dll");
-
-                      if (!AppDomain.CurrentDomain.GetAssemblies()
-                          .Any(a => string.Equals(a.GetName().Name, "0Harmony", StringComparison.Ordinal)))
+                      if (!AppDomain.CurrentDomain.GetAssemblies().Any(a => string.Equals(a.GetName().Name, "0Harmony", StringComparison.Ordinal)))
                       {
-                          if (!File.Exists(harmonyPath))
-                          {
-                              throw new FileNotFoundException("0Harmony.dll not found beside RF4SFontHook.dll", harmonyPath);
-                          }
-
+                          if (!File.Exists(harmonyPath)) throw new FileNotFoundException("0Harmony.dll not found beside RF4SFontHook.dll", harmonyPath);
                           AssemblyLoadContext.Default.LoadFromAssemblyPath(harmonyPath);
                           Log("Loaded 0Harmony.dll from hook directory.");
                       }
-
-                      foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
-                      {
-                          TryPatch(assembly);
-                      }
-
+                      foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) TryPatch(assembly);
                       AppDomain.CurrentDomain.AssemblyLoad += (_, e) => TryPatch(e.LoadedAssembly);
                   }
-                  catch (Exception ex)
-                  {
-                      Log("Initialize error: " + ex);
-                  }
+                  catch (Exception ex) { Log("Initialize error: " + ex); }
               }
 
               private static void TryPatch(Assembly assembly)
               {
-                  if (!string.Equals(assembly.GetName().Name, "Ryujinx.HLE", StringComparison.Ordinal))
-                  {
-                      return;
-                  }
-
-                  if (Interlocked.Exchange(ref _patched, 1) != 0)
-                  {
-                      return;
-                  }
-
+                  if (!string.Equals(assembly.GetName().Name, "Ryujinx.HLE", StringComparison.Ordinal)) return;
+                  if (Interlocked.Exchange(ref _patched, 1) != 0) return;
                   try
                   {
-                      Type? type = assembly.GetType("Ryujinx.HLE.HOS.Services.Sdb.Pl.SharedFontManager", throwOnError: false);
-                      if (type is null)
-                      {
-                          throw new MissingMemberException("SharedFontManager not found.");
-                      }
-
-                      MethodInfo? decrypt = type.GetMethod(
-                          "DecryptFont",
-                          BindingFlags.Instance | BindingFlags.NonPublic,
-                          binder: null,
-                          types: new[] { typeof(Stream) },
-                          modifiers: null);
-
-                      if (decrypt is null)
-                      {
-                          throw new MissingMethodException("DecryptFont(Stream) not found.");
-                      }
-
-                      MethodInfo prefix = typeof(StartupHook).GetMethod(
-                          nameof(DecryptFontPrefix),
-                          BindingFlags.Static | BindingFlags.NonPublic)!;
-
+                      Type? type = assembly.GetType("Ryujinx.HLE.HOS.Services.Sdb.Pl.SharedFontManager", false);
+                      if (type is null) throw new MissingMemberException("SharedFontManager not found.");
+                      MethodInfo? decrypt = type.GetMethod("DecryptFont", BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(Stream) }, null);
+                      if (decrypt is null) throw new MissingMethodException("DecryptFont(Stream) not found.");
+                      MethodInfo prefix = typeof(StartupHook).GetMethod(nameof(DecryptFontPrefix), BindingFlags.Static | BindingFlags.NonPublic)!;
                       Harmony harmony = new("rf4s.vietnamese.sharedfont");
                       harmony.Patch(decrypt, prefix: new HarmonyMethod(prefix));
-
-                      MethodInfo? initialize = type.GetMethod(
-                          "Initialize",
-                          BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                          binder: null,
-                          types: Type.EmptyTypes,
-                          modifiers: null);
-
-                      if (initialize is not null)
-                      {
-                          MethodInfo reset = typeof(StartupHook).GetMethod(
-                              nameof(ResetFontCounter),
-                              BindingFlags.Static | BindingFlags.NonPublic)!;
-                          harmony.Patch(initialize, postfix: new HarmonyMethod(reset));
-                      }
-
                       Log("Patched Ryujinx SharedFontManager successfully.");
                   }
-                  catch (Exception ex)
-                  {
-                      Interlocked.Exchange(ref _patched, 0);
-                      Log("Patch error: " + ex);
-                  }
+                  catch (Exception ex) { Interlocked.Exchange(ref _patched, 0); Log("Patch error: " + ex); }
               }
 
               private static bool DecryptFontPrefix(ref byte[] __result)
@@ -159,53 +94,25 @@ jobs:
                   try
                   {
                       int call = Interlocked.Increment(ref _fontCallIndex) - 1;
-
-                      // EnsureInitialized creates the six shared fonts in a fixed order.
-                      // FontStandard (Japan/US/Europe) is the first call in every group.
-                      if ((call % 6) != 0)
-                      {
-                          return true;
-                      }
-
-                      string hookDir = Path.GetDirectoryName(typeof(StartupHook).Assembly.Location)
-                          ?? AppContext.BaseDirectory;
+                      if ((call % 6) != 0) return true;
+                      string hookDir = Path.GetDirectoryName(typeof(StartupHook).Assembly.Location) ?? AppContext.BaseDirectory;
                       string fontPath = Path.Combine(hookDir, "FontStandard_RF4S_Vietnamese.ttf");
-
-                      if (!File.Exists(fontPath))
-                      {
-                          Log("Vietnamese font file not found: " + fontPath);
-                          return true;
-                      }
-
+                      if (!File.Exists(fontPath)) { Log("Vietnamese font file not found: " + fontPath); return true; }
                       __result = File.ReadAllBytes(fontPath);
                       Log($"FontStandard overridden with Vietnamese font ({__result.Length} bytes).");
                       return false;
                   }
-                  catch (Exception ex)
-                  {
-                      Log("Font override error: " + ex);
-                      return true;
-                  }
-              }
-
-              private static void ResetFontCounter()
-              {
-                  Interlocked.Exchange(ref _fontCallIndex, 0);
+                  catch (Exception ex) { Log("Font override error: " + ex); return true; }
               }
 
               private static void Log(string text)
               {
                   try
                   {
-                      string dir = Path.GetDirectoryName(typeof(StartupHook).Assembly.Location)
-                          ?? AppContext.BaseDirectory;
-                      File.AppendAllText(
-                          Path.Combine(dir, "RF4SFontHook.log"),
-                          DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | " + text + Environment.NewLine);
+                      string dir = Path.GetDirectoryName(typeof(StartupHook).Assembly.Location) ?? AppContext.BaseDirectory;
+                      File.AppendAllText(Path.Combine(dir, "RF4SFontHook.log"), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | " + text + Environment.NewLine);
                   }
-                  catch
-                  {
-                  }
+                  catch { }
               }
           }
           EOF
@@ -218,72 +125,32 @@ jobs:
         shell: bash
         run: |
           mkdir -p fakehle host testbundle
-
           cat > fakehle/FakeHle.csproj <<'EOF'
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup>
-              <TargetFramework>net10.0</TargetFramework>
-              <AssemblyName>Ryujinx.HLE</AssemblyName>
-            </PropertyGroup>
-          </Project>
+          <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework><AssemblyName>Ryujinx.HLE</AssemblyName></PropertyGroup></Project>
           EOF
-
           cat > fakehle/SharedFontManager.cs <<'EOF'
           using System.IO;
           using System.Runtime.CompilerServices;
-          namespace Ryujinx.HLE.HOS.Services.Sdb.Pl
-          {
-              internal class SharedFontManager
-              {
-                  public void Initialize() { }
-
-                  [MethodImpl(MethodImplOptions.NoInlining)]
-                  private byte[] DecryptFont(Stream stream)
-                  {
-                      byte[] source = new byte[] { 9, 9, 9, 9 };
-                      return source;
-                  }
-
-                  [MethodImpl(MethodImplOptions.NoInlining)]
-                  public byte[] Test(Stream stream) => DecryptFont(stream);
-              }
-          }
+          namespace Ryujinx.HLE.HOS.Services.Sdb.Pl { internal class SharedFontManager {
+              public void Initialize() { }
+              [MethodImpl(MethodImplOptions.NoInlining)] private byte[] DecryptFont(Stream stream) => new byte[] { 9,9,9,9 };
+              [MethodImpl(MethodImplOptions.NoInlining)] public byte[] Test(Stream stream) => DecryptFont(stream);
+          } }
           EOF
-
           cat > host/Host.csproj <<'EOF'
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup>
-              <OutputType>Exe</OutputType>
-              <TargetFramework>net10.0</TargetFramework>
-            </PropertyGroup>
-            <ItemGroup>
-              <ProjectReference Include="../fakehle/FakeHle.csproj" />
-            </ItemGroup>
-          </Project>
+          <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><ProjectReference Include="../fakehle/FakeHle.csproj" /></ItemGroup></Project>
           EOF
-
           cat > host/Program.cs <<'EOF'
-          using System;
-          using System.IO;
-          using System.Reflection;
-
-          Assembly asm = Assembly.Load("Ryujinx.HLE");
-          Type type = asm.GetType("Ryujinx.HLE.HOS.Services.Sdb.Pl.SharedFontManager", true)!;
-          object obj = Activator.CreateInstance(type, nonPublic: true)!;
-          MethodInfo init = type.GetMethod("Initialize", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
-          init.Invoke(obj, null);
-          MethodInfo test = type.GetMethod("Test", BindingFlags.Instance | BindingFlags.Public)!;
-          byte[] result = (byte[])test.Invoke(obj, new object[] { new MemoryStream(new byte[16]) })!;
-          Console.WriteLine("RESULT_LEN=" + result.Length);
-          if (result.Length != 7) Environment.Exit(41);
+          using System; using System.IO; using System.Reflection;
+          Assembly asm=Assembly.Load("Ryujinx.HLE"); Type type=asm.GetType("Ryujinx.HLE.HOS.Services.Sdb.Pl.SharedFontManager",true)!; object obj=Activator.CreateInstance(type,nonPublic:true)!;
+          type.GetMethod("Initialize",BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic)!.Invoke(obj,null);
+          byte[] result=(byte[])type.GetMethod("Test",BindingFlags.Instance|BindingFlags.Public)!.Invoke(obj,new object[]{new MemoryStream(new byte[16])})!;
+          Console.WriteLine("RESULT_LEN="+result.Length); if(result.Length!=7) Environment.Exit(41);
           EOF
-
           dotnet publish host/Host.csproj -c Release -o hostout
-
           cp out/RF4SFontHook.dll testbundle/
           cp out/0Harmony.dll testbundle/
           printf 'VIETNAM' > testbundle/FontStandard_RF4S_Vietnamese.ttf
-
           set +e
           DOTNET_STARTUP_HOOKS="$PWD/testbundle/RF4SFontHook.dll" dotnet hostout/Host.dll
           rc=$?
@@ -304,7 +171,6 @@ jobs:
           cp out/0Harmony.dll artifact/
           cp out/RF4SFontHook.deps.json artifact/
           sha256sum artifact/RF4SFontHook.dll artifact/0Harmony.dll > artifact/SHA256SUMS.txt
-          ls -lh artifact
 
       - name: Upload hook artifact
         uses: actions/upload-artifact@v4
@@ -312,3 +178,5 @@ jobs:
           name: RF4SFontHook-net8
           path: artifact
           retention-days: 3
+
+# RF4S fontfix runtime validation: load Harmony before touching Ryujinx.HLE.
